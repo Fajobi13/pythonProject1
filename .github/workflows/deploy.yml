@@ -28,7 +28,6 @@ jobs:
       run: |
         python -m venv venv
         source venv/bin/activate
-        pip install --upgrade pip
         pip install bandit
 
     # Step 4: Run Bandit for Static Application Security Testing (SAST)
@@ -56,15 +55,16 @@ jobs:
         VERSION=$(git describe --tags --always || echo "latest")
         echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-    # Step 8: Build the Docker image with the dynamic version
+    # Step 8: Build the Docker image with the dynamic version and latest tag
     - name: Build Docker image
       run: |
-        docker build -t ${{ secrets.DOCKER_USERNAME }}/flask-app:${{ env.VERSION }} .
+        docker build -t ${{ secrets.DOCKER_USERNAME }}/flask-app:${{ env.VERSION }} -t ${{ secrets.DOCKER_USERNAME }}/flask-app:latest .
 
-    # Step 9: Push the Docker image to Docker Hub with the dynamic version
+    # Step 9: Push the Docker image to Docker Hub with both dynamic version and latest tag
     - name: Push Docker image to Docker Hub
       run: |
         docker push ${{ secrets.DOCKER_USERNAME }}/flask-app:${{ env.VERSION }}
+        docker push ${{ secrets.DOCKER_USERNAME }}/flask-app:latest
 
   deploy:
     runs-on: ubuntu-latest
@@ -80,6 +80,7 @@ jobs:
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         script: |
           docker pull ${{ secrets.DOCKER_USERNAME }}/flask-app:${{ env.VERSION }}
+          docker pull ${{ secrets.DOCKER_USERNAME }}/flask-app:latest
           docker stop flask-app || true
           docker rm flask-app || true
-          docker run -d -p 80:4000 --name flask-app ${{ secrets.DOCKER_USERNAME }}/flask-app:${{ env.VERSION }}
+          docker run -d -p 80:4000 --name flask-app ${{ secrets.DOCKER_USERNAME }}/flask-app:latest

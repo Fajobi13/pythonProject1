@@ -1,8 +1,8 @@
 import sqlite3
 import jwt
 from functools import wraps
-from flask import Flask, jsonify, request
-from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST, start_http_server
+from flask import Flask, jsonify, request, Response
+from prometheus_client import Counter, Histogram, generate_latest, CONTENT_TYPE_LATEST
 
 # Initialize Flask app
 app = Flask(__name__)
@@ -14,7 +14,6 @@ SECRET_KEY = "your-secret-key"
 REQUEST_COUNTER = Counter('http_requests_total', 'Total number of HTTP requests')
 REQUEST_LATENCY = Histogram('http_request_latency_seconds', 'Request latency in seconds')
 TASK_COUNTER = Counter('task_created_total', 'Total number of tasks created')
-
 
 # Initialize the SQLite database (create table if it doesn't exist)
 def init_db():
@@ -32,7 +31,6 @@ def init_db():
     conn.commit()
     conn.close()
 
-
 # JWT Authentication decorator
 def token_required(f):
     @wraps(f)
@@ -45,9 +43,7 @@ def token_required(f):
         except:
             return jsonify({"message": "Token is invalid"}), 403
         return f(*args, **kwargs)
-
     return decorated_function
-
 
 # Endpoint to generate JWT token (dummy login)
 @app.route('/api/login', methods=['POST'])
@@ -55,13 +51,11 @@ def login():
     token = jwt.encode({"user": "admin"}, SECRET_KEY, algorithm="HS256")
     return jsonify({"token": token})
 
-
 # Health check endpoint
 @app.route('/api/health', methods=['GET'])
 def health_check():
     REQUEST_COUNTER.inc()  # Increment request counter for health checks
     return jsonify({"status": "up"}), 200
-
 
 # Create a new task and store it in the SQLite database
 @app.route('/api/tasks', methods=['POST'])
@@ -95,7 +89,6 @@ def create_task():
 
         return jsonify(new_task), 201
 
-
 # Get all tasks from the SQLite database
 @app.route('/api/tasks', methods=['GET'])
 @token_required
@@ -116,7 +109,6 @@ def get_tasks():
 
         return jsonify(tasks), 200
 
-
 # Delete a task by ID from the SQLite database
 @app.route('/api/tasks/<int:task_id>', methods=['DELETE'])
 @token_required
@@ -129,16 +121,12 @@ def delete_task(task_id):
 
         return jsonify({'message': 'Task deleted'}), 200
 
-
-# Expose metrics at the /metrics endpoint for Prometheus to scrape
+# Expose Prometheus metrics at the /metrics endpoint for Prometheus to scrape
 @app.route('/metrics', methods=['GET'])
 def metrics():
-    return generate_latest(), 200, {'Content-Type': CONTENT_TYPE_LATEST}
-
+    return Response(generate_latest(), mimetype=CONTENT_TYPE_LATEST)
 
 # Initialize the database and start the Flask app
 if __name__ == '__main__':
     init_db()  # Initialize the SQLite database
-    # Start Prometheus client HTTP server to expose custom metrics on port 8000 (optional)
-    start_http_server(8000)
     app.run(host='0.0.0.0', port=4000, debug=True)

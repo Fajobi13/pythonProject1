@@ -4,7 +4,7 @@ name: Build and Deploy Dockerized Flask App
 on:
   push:
     branches:
-      - main
+      - master
 
 jobs:
   build:
